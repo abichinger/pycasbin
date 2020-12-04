@@ -1,3 +1,13 @@
+# Semantic Versioning Changelog
+
+# [0.11.0](https://github.com/abichinger/pycasbin/compare/v0.10.0...v0.11.0) (2020-12-04)
+
+
+### Features
+
+* add eval function ([9604fbf](https://github.com/abichinger/pycasbin/commit/9604fbf91a22149dab531183576c8a4e7078a4d0))
+* add semantic-release-pypi plugin ([e53d842](https://github.com/abichinger/pycasbin/commit/e53d84283952b3b66720e6d50ae91030880fe839))
+
 # [0.11.0](https://github.com/casbin/pycasbin/compare/v0.10.0...v0.11.0) (2020-12-01)
 
 
