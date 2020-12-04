@@ -6,7 +6,7 @@ with open(desc_file, "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="casbin",
+    name="casbin-32c780cb-04bf-4725-87f5-dd1a202b1b10",
     author="TechLee",
     author_email="techlee@qq.com",
     description="An authorization library that supports access control models like ACL, RBAC, ABAC in Python",
