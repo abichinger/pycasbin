@@ -1,10 +1,10 @@
-from threading import Lock, Condition
+from threading import RLock, Condition
 
 class RWLockWrite():
     ''' write preferring readers-wirter lock '''
 
     def __init__(self):
-        self._lock = Lock()
+        self._lock = RLock()
         self._cond = Condition(self._lock)
         self._active_readers = 0
         self._waiting_writers = 0
@@ -67,13 +67,7 @@ class WriteRWLock():
 
 from functools import wraps
 
-def _init_synced_class(self, *args, **kwargs):
-    super().__init__(*args, **kwargs)
-    self._rwlock = RWLockWrite()
-    self._rl = self._rwlock.gen_rlock()
-    self._wl = self._rwlock.gen_wlock()
-
-def rlock_decorator(func):
+def _rlock_decorator(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         with self._rl:
@@ -81,7 +75,7 @@ def rlock_decorator(func):
 
     return wrapper
 
-def wlock_decorator(func):
+def _wlock_decorator(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         with self._wl:
@@ -89,16 +83,26 @@ def wlock_decorator(func):
 
     return wrapper
 
+def _get_init(synced_class):
+    
+    def __init__(self, *args, **kwargs):
+        self._rwlock = RWLockWrite()
+        self._rl = self._rwlock.gen_rlock()
+        self._wl = self._rwlock.gen_wlock()
+        super(synced_class, self).__init__(*args, **kwargs)
+
+    return __init__
+
 def gen_synced_class(name, bases, rl_functions, wl_functions):
 
-    attributes = {
-        '__init__': wraps(bases[0].__init__)(_init_synced_class)
-    }
+    attributes = {}
 
     for func in wl_functions:
-        attributes[func.__name__] = rlock_decorator(func)
+        attributes[func.__name__] = _wlock_decorator(func)
 
     for func in rl_functions:
-        attributes[func.__name__] = rlock_decorator(func)
+        attributes[func.__name__] = _rlock_decorator(func)
 
-    return type(name, bases, attributes)
+    synced_class = type(name, bases, attributes)
+    synced_class.__init__ = _get_init(synced_class)
+    return synced_class
