@@ -1,5 +1,7 @@
 from threading import RLock, Condition
 
+# This implementation was adapted from https://en.wikipedia.org/wiki/Readers%E2%80%93writer_lock
+
 class RWLockWrite():
     ''' write preferring readers-wirter lock '''
 
@@ -64,45 +66,3 @@ class WriteRWLock():
     def __exit__(self, exc_type, exc_value, traceback):
         self.rwlock.release_write()
         return False
-
-from functools import wraps
-
-def _rlock_decorator(func):
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        with self._rl:
-            func(self, *args, **kwargs)
-
-    return wrapper
-
-def _wlock_decorator(func):
-    @wraps(func)
-    def wrapper(self, *args, **kwargs):
-        with self._wl:
-            func(self, *args, **kwargs)
-
-    return wrapper
-
-def _get_init(synced_class):
-    
-    def __init__(self, *args, **kwargs):
-        self._rwlock = RWLockWrite()
-        self._rl = self._rwlock.gen_rlock()
-        self._wl = self._rwlock.gen_wlock()
-        super(synced_class, self).__init__(*args, **kwargs)
-
-    return __init__
-
-def gen_synced_class(name, bases, rl_functions, wl_functions):
-
-    attributes = {}
-
-    for func in wl_functions:
-        attributes[func.__name__] = _wlock_decorator(func)
-
-    for func in rl_functions:
-        attributes[func.__name__] = _rlock_decorator(func)
-
-    synced_class = type(name, bases, attributes)
-    synced_class.__init__ = _get_init(synced_class)
-    return synced_class

@@ -1,21 +1,108 @@
 from casbin.enforcer import Enforcer
-from casbin.util.rwlock import RWLockWrite, gen_synced_class
+from casbin.util.rwlock import RWLockWrite
+import threading
+import time
 
-class SyncedEnforcer():
+class AtomicBool():
+
+    def __init__(self, value):
+        self._lock = threading.Lock()
+        self._value = value
+
+    @property
+    def value(self):
+        with self._lock:
+            return self._value
+    
+    @value.setter
+    def value(self, value):
+        with self._lock:
+            self._value = value
+
+class SyncedEnforcer(Enforcer):
+
+    """SyncedEnforcer wraps Enforcer and provides synchronized access. 
+    It's also a drop-in replacement for Enforcer"""
 
     def __init__(self, model=None, adapter=None, enable_log=False):
         self._e = Enforcer(model, adapter, enable_log)
         self._rwlock = RWLockWrite()
         self._rl = self._rwlock.gen_rlock()
         self._wl = self._rwlock.gen_wlock()
+        self._auto_loading = AtomicBool(False)
+        self._auto_loading_thread = None
+
+    def is_auto_loading_running(self):
+        """check if SyncedEnforcer is auto loading policies"""
+        return self._auto_loading.value
+
+    def _auto_load_policy(self, interval):
+            while self.is_auto_loading_running():
+                time.sleep(interval)
+                self.load_policy()
+
+    def start_auto_load_policy(self, interval):
+        """starts a thread that will call load_policy every interval seconds"""
+        if self.is_auto_loading_running():
+            return
+        self._auto_loading.value = True
+        self._auto_loading_thread = threading.Thread(target=self._auto_load_policy, args=[interval], daemon=True)
+        
+    def stop_auto_load_policy(self):
+        """stops the thread started by start_auto_load_policy"""
+        if self.is_auto_loading_running():
+            self._auto_loading.value = False
+
+    def get_model(self):
+        """gets the current model."""
+        with self._rl:
+            return self._e.get_model()
+
+    def set_model(self, m):
+        """sets the current model."""
+        with self._wl:
+            return self._e.set_model(m)
+
+    def load_model(self):
+        """reloads the model from the model CONF file.
+        Because the policy is attached to a model, so the policy is invalidated and needs to be reloaded by calling LoadPolicy().
+        """
+        with self._wl:
+            return self._e.load_model()
 
     def get_role_manager(self):
         """gets the current role manager."""
-        return self._e.rm
+        with self._rl:
+            return self._e.get_role_manager()
+
+    def set_role_manager(self, rm):
+        with self._wl:
+            self._e.set_role_manager(rm)
+
+    def get_adapter(self):
+        """gets the current adapter."""
+        with self._rl:
+            self._e.get_adapter()
+
+    def set_adapter(self, adapter):
+        """sets the current adapter."""
+        with self._wl:
+            self._e.set_adapter(adapter)
+
+    def set_watcher(self, watcher):
+        """sets the current watcher."""
+        with self._wl:
+            self._e.set_watcher(watcher)
+
+    def set_effector(self, eft):
+        """sets the current effector."""
+        with self._wl:
+            self._e.set_effector(eft)
 
     def enable_log(self, enable):
         """changes whether Casbin will log messages to the Logger."""
-        return self._e.enable_log(enable)
+        with self._wl:
+            return self._e.enable_log(enable)
 
     def clear_policy(self):
         """ clears all policy."""
@@ -397,3 +484,25 @@ class SyncedEnforcer():
         """gets permissions for a user or role inside domain."""
         with self._rl:
             return self._e.get_permissions_for_user_in_domain(user, domain)
+
+    def enable_auto_build_role_links(self, auto_build_role_links):
+        """controls whether to rebuild the role inheritance relations when a role is added or deleted."""
+        with self._wl:
+            return self._e.enable_auto_build_role_links(auto_build_role_links)
+
+    def enable_auto_save(self, auto_save):
+        """controls whether to save a policy rule automatically to the adapter when it is added or removed."""
+        with self._wl:
+            return self._e.enable_auto_save(auto_save)
+
+    def enable_enforce(self, enabled=True):
+        """changes the enforcing state of Casbin,
+        when Casbin is disabled, all access will be allowed by the Enforce() function.
+        """
+        with self._wl:
+            return self._e.enable_enforce(enabled)
+
+    def is_filtered(self):
+        """returns true if the loaded policy has been filtered."""
+        with self._rl:
+            self._e.is_filtered()

@@ -1,6 +1,7 @@
 import casbin
 import os
 from unittest import TestCase
+import time
 
 def get_examples(path):
     examples_path = os.path.split(os.path.realpath(__file__))[0] + "/../examples/"
@@ -255,3 +256,18 @@ class TestConfigSynced(TestConfig):
             adapter,
             enable_log,
         )
+
+    def test_auto_loading_policy(self):
+        e = self.get_enforcer(
+            get_examples("basic_model.conf"),
+            get_examples("basic_policy.csv"),
+            # True,
+        )
+
+        e.start_auto_load_policy(5/1000)
+        self.assertTrue(e.is_auto_loading_running())
+        e.stop_auto_load_policy()
+        #thread needs a moment to exit
+        time.sleep(10/1000)
+        self.assertFalse(e.is_auto_loading_running())
+        
