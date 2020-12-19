@@ -9,15 +9,26 @@ class SyncedEnforcer():
         self._rl = self._rwlock.gen_rlock()
         self._wl = self._rwlock.gen_wlock()
 
+    def get_role_manager(self):
+        """gets the current role manager."""
+        return self._e.rm
+
+    def enable_log(self, enable):
+        """changes whether Casbin will log messages to the Logger."""
+        return self._e.enable_log(enable)
+
     def clear_policy(self):
+        """ clears all policy."""
         with self._wl:
             return self._e.clear_policy()
 
     def load_policy(self):
+        """reloads the policy from file/database."""
         with self._wl:
             return self._e.load_policy()
 
     def load_filtered_policy(self, filter):
+        """"reloads a filtered policy from file/database."""
         with self._wl:
             return self._e.load_filtered_policy(filter)
 
@@ -26,10 +37,14 @@ class SyncedEnforcer():
             return self._e.save_policy()
 
     def build_role_links(self):
+        """manually rebuild the role inheritance relations."""
         with self._rl:
             return self._e.build_role_links()
 
     def enforce(self, *rvals):
+        """decides whether a "subject" can access a "object" with the operation "action",
+        input parameters are usually: (sub, obj, act).
+        """
         with self._rl:
             return self._e.enforce(*rvals)
 
@@ -209,12 +224,6 @@ class SyncedEnforcer():
         """adds a customized function."""
         with self._wl:
             return self._e.add_function(name, func)
-
-    # def add_policies(self, rules):
-    #     pass
-
-    # def add_named_policies(self, ptype, rules):
-    #     pass
 
     # enforcer.py
 
